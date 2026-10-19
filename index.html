@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Printable Lamp Shade & Lithophane Studio</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+  <style>
+    body { margin: 0; overflow: hidden; background-color: #0f172a; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #1e293b; }
+    ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+    input[type="range"] { accent-color: #f59e0b; }
+  </style>
+</head>
+<body class="flex h-screen w-screen">
+
+  <!-- Control Sidebar -->
+  <div class="w-96 bg-slate-900 border-r border-slate-800 flex flex-col h-full z-10 shadow-2xl">
+    <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+      <div>
+        <h1 class="text-lg font-bold text-amber-400 tracking-tight">LampShade Studio Pro</h1>
+        <p class="text-xs text-slate-400">Parametric & Lithophane STL Generator</p>
+      </div>
+      <button id="openSlicerModalBtn" class="px-2.5 py-1.5 text-xs font-semibold bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 rounded-md transition flex items-center gap-1.5">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+        </svg>
+        Slicer Guide
+      </button>
+    </div>
+
+    <!-- Scrollable Parameters -->
+    <div class="flex-1 overflow-y-auto p-4 space-y-5">
+      
+      <!-- Presets -->
+      <div>
+        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Design Presets</label>
+        <div class="grid grid-cols-3 gap-2">
+          <button onclick="applyPreset('lithoCylinder')" class="px-2.5 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-medium rounded border border-amber-500/30 transition">Litho Drum</button>
+          <button onclick="applyPreset('ribbedDrum')" class="px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-medium rounded border border-slate-700 transition">Ribbed Drum</button>
+          <button onclick="applyPreset('twistedLotus')" class="px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-medium rounded border border-slate-700 transition">Twisted Lotus</button>
+        </div>
+      </div>
+
+      <!-- LITHOPHANE ENGINE -->
+      <div class="space-y-3 bg-amber-950/20 p-3.5 rounded-lg border border-amber-500/30">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-amber-400">1. Lithophane Image Texture</h2>
+          <button id="clearImageBtn" class="hidden text-xs text-red-400 hover:text-red-300 underline">Remove</button>
+        </div>
+
+        <!-- Upload & Sample Buttons -->
+        <div class="grid grid-cols-2 gap-2">
+          <label class="cursor-pointer bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs py-2 px-3 rounded text-center transition flex items-center justify-center gap-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+            </svg>
+            Upload Image
+            <input id="imageUpload" type="file" accept="image/*" class="hidden">
+          </label>
+          <button id="loadSampleBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs py-2 px-3 rounded border border-slate-700 transition">
+            Load Demo Art
+          </button>
+        </div>
+
+        <!-- Thumbnail Preview -->
+        <div id="imagePreviewContainer" class="hidden flex items-center gap-3 bg-slate-900/90 p-2 rounded border border-slate-800">
+          <canvas id="thumbCanvas" width="64" height="40" class="rounded border border-slate-700 bg-black object-cover"></canvas>
+          <div class="text-xs text-slate-300 truncate flex-1">
+            <div id="imageStatusText" class="font-medium text-amber-300">Active Texture</div>
+            <div class="text-[11px] text-slate-400">Mapped to outer wall</div>
+          </div>
+        </div>
+
+        <div class="space-y-3 pt-1">
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <span>Max Emboss Depth (Relief)</span>
+              <span id="val-lithoDepth" class="font-mono text-amber-300">2.0 mm</span>
+            </div>
+            <input id="lithoDepth" type="range" min="0.0" max="4.5" step="0.1" value="2.0" class="w-full">
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[11px] mb-1 text-slate-300">Height Mapping</label>
+              <select id="lithoPolarity" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-xs text-white">
+                <option value="positive">Dark = Thick (Litho)</option>
+                <option value="negative">Light = Thick (Relief)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] mb-1 text-slate-300">Wrap Mode</label>
+              <select id="lithoWrapMode" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-xs text-white">
+                <option value="stretch">Fit Full Height</option>
+                <option value="aspect">Keep Aspect Ratio</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <div class="flex justify-between text-xs mb-1"><span>Repeat Around</span><span id="val-lithoRepeatX" class="font-mono text-amber-300">1x</span></div>
+              <input id="lithoRepeatX" type="range" min="1" max="6" step="1" value="1" class="w-full">
+            </div>
+            <div>
+              <div class="flex justify-between text-xs mb-1"><span>Surface Blur</span><span id="val-lithoBlur" class="font-mono text-amber-300">1 px</span></div>
+              <input id="lithoBlur" type="range" min="0" max="6" step="1" value="1" class="w-full">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <div class="flex justify-between text-xs mb-1"><span>Top/Bot Margin</span><span id="val-lithoMargin" class="font-mono text-amber-300">8%</span></div>
+              <input id="lithoMargin" type="range" min="0" max="30" step="1" value="8" class="w-full">
+            </div>
+            <div>
+              <div class="flex justify-between text-xs mb-1"><span>Mesh Detail</span><span id="val-heightSegments" class="font-mono text-amber-300">160</span></div>
+              <input id="heightSegments" type="range" min="60" max="280" step="10" value="160" class="w-full">
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-1">
+            <span class="text-xs text-slate-300">Flip Image Horizontally</span>
+            <input id="lithoFlipX" type="checkbox" class="w-4 h-4 accent-amber-500 rounded cursor-pointer">
+          </div>
+        </div>
+      </div>
+
+      <!-- Base Dimensions -->
+      <div class="space-y-3 bg-slate-800/40 p-3.5 rounded-lg border border-slate-800">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-amber-400">2. Base Dimensions (mm)</h2>
+        
+        <div>
+          <div class="flex justify-between text-xs mb-1"><span>Total Height</span><span id="val-height" class="font-mono text-amber-300">160 mm</span></div>
+          <input id="height" type="range" min="60" max="300" step="1" value="160" class="w-full">
+        </div>
+        <div>
+          <div class="flex justify-between text-xs mb-1"><span>Bottom Radius</span><span id="val-bottomRadius" class="font-mono text-amber-300">70 mm</span></div>
+          <input id="bottomRadius" type="range" min="25" max="150" step="1" value="70" class="w-full">
+        </div>
+        <div>
+          <div class="flex justify-between text-xs mb-1"><span>Top Radius</span><span id="val-topRadius" class="font-mono text-amber-300">70 mm</span></div>
+          <input id="topRadius" type="range" min="20" max="150" step="1" value="70" class="w-full">
+        </div>
+        <div>
+          <div class="flex justify-between text-xs mb-1"><span>Min Wall Thickness (Brightest)</span><span id="val-wallThickness" class="font-mono text-amber-300">0.8 mm</span></div>
+          <input id="wallThickness" type="range" min="0.6" max="4.0" step="0.1" value="0.8" class="w-full">
+        </div>
+      </div>
+
+      <!-- Profile & Contour -->
+      <div class="space-y-3 bg-slate-800/40 p-3.5 rounded-lg border border-slate-800">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-amber-400">3. Silhouette & Resolution</h2>
+        
+        <div>
+          <label class="block text-xs mb-1 text-slate-300">Vertical Profile Curve</label>
+          <select id="profileType" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white">
+            <option value="linear">Straight Taper / Cylinder</option>
+            <option value="bulge">Belly / Bulge Curve</option>
+            <option value="hourglass">S-Curve / Wave</option>
+          </select>
+        </div>
+        <div>
+          <div class="flex justify-between text-xs mb-1"><span>Curve Intensity</span><span id="val-bulgeAmount" class="font-mono text-amber-300">0 mm</span></div>
+          <input id="bulgeAmount" type="range" min="-50" max="60" step="1" value="0" class="w-full">
+        </div>
+        <div>
+          <div class="flex justify-between text-xs mb-1"><span>Radial Segments (Circumference)</span><span id="val-radialSegments" class="font-mono text-amber-300">240</span></div>
+          <input id="radialSegments" type="range" min="3" max="360" step="1" value="240" class="w-full">
+        </div>
+      </div>
+
+      <!-- Surface Pattern -->
+      <div class="space-y-3 bg-slate-800/40 p-3.5 rounded-lg border border-slate-800">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-amber-400">4. Geometric Ribs & Twist</h2>
+        
+        <div>
+          <div class="flex justify-between text-xs mb-1"><span>Vertical Fin Count</span><span id="val-ribCount" class="font-mono text-amber-300">0</span></div>
+          <input id="ribCount" type="range" min="0" max="80" step="1" value="0" class="w-full">
+        </div>
+        <div>
+          <div class="flex justify-between text-xs mb-1"><span>Fin Depth</span><span id="val-ribDepth" class="font-mono text-amber-300">0.0 mm</span></div>
+          <input id="ribDepth" type="range" min="0" max="25" step="0.5" value="0.0" class="w-full">
+        </div>
+        <div>
+          <div class="flex justify-between text-xs mb-1"><span>Fin Sharpness</span><span id="val-ribSharpness" class="font-mono text-amber-300">1.0</span></div>
+          <input id="ribSharpness" type="range" min="0.5" max="4.0" step="0.1" value="1.0" class="w-full">
+        </div>
+        <div>
+          <div class="flex justify-between text-xs mb-1"><span>Total Twist Angle</span><span id="val-twistAngle" class="font-mono text-amber-300">0°</span></div>
+          <input id="twistAngle" type="range" min="-360" max="360" step="5" value="0" class="w-full">
+        </div>
+      </div>
+
+      <!-- Hardware & Socket Fitter -->
+      <div class="space-y-3 bg-slate-800/40 p-3.5 rounded-lg border border-slate-800">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-amber-400">5. Lamp Socket Fitter</h2>
+        
+        <div>
+          <label class="block text-xs mb-1 text-slate-300">Attachment Style</label>
+          <select id="fitterPosition" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white">
+            <option value="bottom">Bottom Mount (Table Lamp)</option>
+            <option value="top">Top Mount (Pendant / Hanging)</option>
+            <option value="solidBottom">Solid Base (Tea Light / LED Puck)</option>
+            <option value="none">Open Cylinder (No Fitter)</option>
+          </select>
+        </div>
+
+        <div id="fitterControls" class="space-y-3 pt-1">
+          <div>
+            <label class="block text-xs mb-1 text-slate-300">Standard Socket Hole Size</label>
+            <select id="socketPreset" onchange="applySocketPreset()" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white">
+              <option value="40">E27 Standard Ring (40 mm)</option>
+              <option value="35">US E26 UNO Fitter (35 mm)</option>
+              <option value="28">E14 Small European (28 mm)</option>
+              <option value="42">IKEA Cord Set (42 mm)</option>
+              <option value="custom">Custom Diameter</option>
+            </select>
+          </div>
+          <div>
+            <div class="flex justify-between text-xs mb-1"><span>Hole Diameter</span><span id="val-holeDiameter" class="font-mono text-amber-300">40 mm</span></div>
+            <input id="holeDiameter" type="range" min="15" max="80" step="0.5" value="40" class="w-full">
+          </div>
+          <div>
+            <div class="flex justify-between text-xs mb-1"><span>Support Spokes</span><span id="val-spokeCount" class="font-mono text-amber-300">4</span></div>
+            <input id="spokeCount" type="range" min="3" max="8" step="1" value="4" class="w-full">
+          </div>
+          <div>
+            <div class="flex justify-between text-xs mb-1"><span>Fitter Thickness</span><span id="val-fitterHeight" class="font-mono text-amber-300">4.0 mm</span></div>
+            <input id="fitterHeight" type="range" min="2.5" max="10.0" step="0.5" value="4.0" class="w-full">
+          </div>
+        </div>
+      </div>
+
+      <!-- Preview Settings -->
+      <div class="space-y-3 bg-slate-800/40 p-3.5 rounded-lg border border-slate-800">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-amber-400">6. Backlit Simulation</h2>
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-slate-300">Internal Bulb & Litho Glow</span>
+          <input id="bulbToggle" type="checkbox" checked class="w-4 h-4 accent-amber-500 rounded cursor-pointer">
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-slate-300">Auto-Rotate Turntable</span>
+          <input id="autoRotateToggle" type="checkbox" checked class="w-4 h-4 accent-amber-500 rounded cursor-pointer">
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-slate-300">Show Wireframe Mesh</span>
+          <input id="wireframeToggle" type="checkbox" class="w-4 h-4 accent-amber-500 rounded cursor-pointer">
+        </div>
+        <div>
+          <label class="block text-xs mb-1 text-slate-300">Base Filament Color</label>
+          <input id="filamentColor" type="color" value="#fffbeb" class="w-full h-8 rounded bg-slate-800 border border-slate-700 cursor-pointer">
+        </div>
+      </div>
+
+      <!-- Quick Slicer Cheat Sheet Card -->
+      <div class="bg-slate-800/60 p-3.5 rounded-lg border border-amber-500/20 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-amber-400">Live Slicer Specs (0.4mm Nozzle)</span>
+          <button id="openSlicerModalBtn2" class="text-[11px] text-amber-300 underline hover:text-amber-200">Full Table</button>
+        </div>
+        <div class="text-xs text-slate-300 space-y-1 font-mono bg-slate-900/80 p-2.5 rounded border border-slate-800">
+          <div class="flex justify-between"><span>Wall Range:</span><span id="spec-wallRange" class="text-amber-300">0.8 – 2.8 mm</span></div>
+          <div class="flex justify-between"><span>Rec. Wall Loops:</span><span id="spec-wallLoops" class="text-amber-300">7 – 8 loops</span></div>
+          <div class="flex justify-between"><span>Sparse Infill:</span><span class="text-emerald-400">100% Rectilinear</span></div>
+          <div class="flex justify-between"><span>Layer Height:</span><span class="text-amber-300">0.12 – 0.16 mm</span></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Export Footer -->
+    <div class="p-4 border-t border-slate-800 bg-slate-900/95 space-y-2">
+      <div class="flex justify-between text-xs text-slate-400">
+        <span id="polyCount">Triangles: 0</span>
+        <span id="dimSummary">140 × 140 × 160 mm</span>
+      </div>
+      <button id="exportBtn" class="w-full py-3 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-bold rounded-lg shadow-lg transition flex items-center justify-center gap-2 text-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+        </svg>
+        Export Printable STL
+      </button>
+    </div>
+  </div>
+
+  <!-- 3D Viewport -->
+  <div class="flex-1 relative" id="viewport">
+    <div class="absolute top-4 right-4 bg-slate-900/80 backdrop-blur border border-slate-800 px-3 py-2 rounded-lg text-xs text-slate-300 pointer-events-none space-y-1">
+      <div><strong class="text-amber-400">Left Click + Drag:</strong> Orbit Camera</div>
+      <div><strong class="text-amber-400">Right Click + Drag:</strong> Pan View</div>
+      <div><strong class="text-amber-400">Scroll:</strong> Zoom In/Out</div>
+    </div>
+  </div>
+
+  <!-- Slicer Settings Reference Modal -->
+  <div id="slicerModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900">
+        <div>
+          <h2 class="text-base font-bold text-amber-400">3D Slicer Configuration Reference (Orca-Flashforge / OrcaSlicer)</h2>
+          <p class="text-xs text-slate-400">Recommended profiles for 0.4 mm nozzle on high-speed CoreXY printers (e.g., Flashforge AD5X)</p>
+        </div>
+        <button id="closeSlicerModalBtn" class="text-slate-400 hover:text-white p-1 rounded">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="p-5 overflow-y-auto space-y-5 text-xs text-slate-300">
+        
+        <!-- Mode 1: Lithophane -->
+        <div class="space-y-2">
+          <h3 class="text-sm font-semibold text-amber-300 border-b border-slate-800 pb-1">1. Lithophane Lamp Shades (Image Embossed)</h3>
+          <p class="text-slate-400">Lithophanes rely on 100% solid plastic density so light transmission is controlled strictly by wall thickness—any hollow infill grid will cast unwanted shadows.</p>
+          <div class="grid grid-cols-2 gap-2 bg-slate-800/50 p-3 rounded-lg border border-slate-800">
+            <div><strong class="text-white">Wall Generator:</strong> Arachne (Essential for variable micro-relief)</div>
+            <div><strong class="text-white">Layer Height:</strong> 0.12 mm – 0.16 mm (0.20 mm first layer)</div>
+            <div><strong class="text-white">Wall Loops (Perimeters):</strong> 7 to 9 loops (or enough to exceed max thickness)</div>
+            <div><strong class="text-white">Sparse Infill Density:</strong> 100% (Rectilinear)</div>
+            <div><strong class="text-white">Outer Wall Speed:</strong> 40 – 60 mm/s (prevents ringing on fine details)</div>
+            <div><strong class="text-white">Seam Position:</strong> Aligned or Back (place at the back of the image)</div>
+            <div><strong class="text-white">Filament:</strong> Warm White / Natural PLA or Matte Ivory PLA</div>
+            <div><strong class="text-white">Supports:</strong> None required (spokes print via bridging; add a 5 mm outer brim if tall)</div>
+          </div>
+        </div>
+
+        <!-- Mode 2: Geometric / Ribbed -->
+        <div class="space-y-2">
+          <h3 class="text-sm font-semibold text-amber-300 border-b border-slate-800 pb-1">2. Geometric, Ribbed & Twisted Shades (Non-Lithophane)</h3>
+          <div class="grid grid-cols-2 gap-2 bg-slate-800/50 p-3 rounded-lg border border-slate-800">
+            <div><strong class="text-white">App Wall Thickness:</strong> 1.2 mm – 1.6 mm</div>
+            <div><strong class="text-white">Layer Height:</strong> 0.16 mm – 0.20 mm</div>
+            <div><strong class="text-white">Wall Loops:</strong> 3 to 4 loops (0% Infill to avoid internal grid lines)</div>
+            <div><strong class="text-white">Filament:</strong> Translucent PETG, Silk PLA, Wood PLA, or Matte PLA</div>
+          </div>
+        </div>
+
+        <!-- Mode 3: Vase Mode -->
+        <div class="space-y-2">
+          <h3 class="text-sm font-semibold text-amber-300 border-b border-slate-800 pb-1">3. Spiral Vase Mode Workflow</h3>
+          <p class="text-slate-400">Set Attachment Style to <strong>Solid Base</strong>. In Orca-Flashforge, enable <strong>Spiral Vase</strong>, set <strong>Bottom Shell Layers</strong> to <code>4–6</code>, and set <strong>Outer Wall Line Width</strong> to <code>0.6 mm – 0.8 mm</code> (even with a 0.4 mm nozzle) for a sturdy single-wall shade. To open a socket hole in the base, right-click the model in your slicer → <strong>Add Negative Part → Cylinder</strong> sized to your socket diameter.</p>
+        </div>
+
+        <!-- Safety Note -->
+        <div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-amber-200">
+          <strong>Thermal Safety Note:</strong> Standard PLA softens around 60°C (140°F). Always use low-wattage LED bulbs (under 9W–12W LED equivalent). If using higher-output bulbs or enclosed fixtures, print the shade or fitter in <strong>PETG</strong> or <strong>ASA</strong>.
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { STLExporter } from 'three/addons/exporters/STLExporter.js';
+    import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
+
+    // --- Modal Toggle Logic ---
+    const slicerModal = document.getElementById('slicerModal');
+    document.getElementById('openSlicerModalBtn').addEventListener('click', () => slicerModal.classList.remove('hidden'));
+    document.getElementById('openSlicerModalBtn2').addEventListener('click', () => slicerModal.classList.remove('hidden'));
+    document.getElementById('closeSlicerModalBtn').addEventListener('click', () => slicerModal.classList.add('hidden'));
+    slicerModal.addEventListener('click', (e) => {
+      if (e.target === slicerModal) slicerModal.classList.add('hidden');
+    });
+
+    // --- Scene & Renderer Setup ---
+    const container = document.getElementById('viewport');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x090d16);
+
+    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 2000);
+    camera.position.set(0, 135, 330);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 80, 0);
+    controls.enableDamping = true;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 1.0;
+
+    // --- Reference Build Plate Grid ---
+    const gridHelper = new THREE.GridHelper(250, 25, 0x334155, 0x1e293b);
+    scene.add(gridHelper);
+
+    // --- Lighting ---
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.35);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.55);
+    dirLight.position.set(160, 280, 220);
+    scene.add(dirLight);
+
+    // Internal Lamp Bulb
+    const bulbLight = new THREE.PointLight(0xff9d3b, 2.5, 450, 1.2);
+    bulbLight.position.set(0, 80, 0);
+    scene.add(bulbLight);
+
+    const bulbGeo = new THREE.SphereGeometry(11, 24, 24);
+    const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffd27d });
+    const bulbMesh = new THREE.Mesh(bulbGeo, bulbMat);
+    bulbMesh.position.copy(bulbLight.position);
+    scene.add(bulbMesh);
+
+    // --- Lithophane Image Data Buffer ---
+    let rawImageElement = null;
+    let lithoGrayscaleBuffer = null;
+    let lithoImgWidth = 0;
+    let lithoImgHeight = 0;
+
+    const workCanvas = document.createElement('canvas');
+    const workCtx = workCanvas.getContext('2d', { willReadFrequently: true });
+
+    function createProceduralDemoImage() {
+      const c = document.createElement('canvas');
+      c.width = 600;
+      c.height = 300;
+      const ctx = c.getContext('2d');
+
+      const grad = ctx.createLinearGradient(0, 0, 0, 300);
+      grad.addColorStop(0, '#1e293b');
+      grad.addColorStop(0.65, '#94a3b8');
+      grad.addColorStop(1, '#0f172a');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 600, 300);
+
+      const moonGrad = ctx.createRadialGradient(450, 75, 5, 450, 75, 55);
+      moonGrad.addColorStop(0, '#ffffff');
+      moonGrad.addColorStop(0.4, '#ffffff');
+      moonGrad.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = moonGrad;
+      ctx.beginPath();
+      ctx.arc(450, 75, 55, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      for (let i = 0; i < 65; i++) {
+        const sx = (i * 97) % 600;
+        const sy = (i * 53) % 160;
+        const r = (i % 3) + 1.2;
+        ctx.beginPath();
+        ctx.arc(sx, sy, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.fillStyle = '#334155';
+      ctx.beginPath();
+      ctx.moveTo(0, 300);
+      for (let x = 0; x <= 600; x += 20) {
+        const y = 175 - Math.sin(x * 0.015) * 45 - Math.cos(x * 0.04) * 20;
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(600, 300);
+      ctx.fill();
+
+      ctx.fillStyle = '#020617';
+      ctx.fillRect(0, 255, 600, 45);
+      for (let x = 0; x < 600; x += 16) {
+        const treeH = 38 + ((x * 29) % 35);
+        const baseY = 260;
+        for (let tier = 0; tier < 3; tier++) {
+          const tierY = baseY - tier * (treeH * 0.28);
+          const halfW = (14 - tier * 3);
+          ctx.beginPath();
+          ctx.moveTo(x - halfW, tierY);
+          ctx.lineTo(x + halfW, tierY);
+          ctx.lineTo(x, tierY - treeH * 0.45);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        rawImageElement = img;
+        processLithoImage();
+        generateLampShade();
+      };
+      img.src = c.toDataURL();
+    }
+
+    function processLithoImage() {
+      const previewBox = document.getElementById('imagePreviewContainer');
+      const clearBtn = document.getElementById('clearImageBtn');
+
+      if (!rawImageElement) {
+        lithoGrayscaleBuffer = null;
+        previewBox.classList.add('hidden');
+        clearBtn.classList.add('hidden');
+        return;
+      }
+
+      previewBox.classList.remove('hidden');
+      clearBtn.classList.remove('hidden');
+
+      const thumb = document.getElementById('thumbCanvas');
+      const tCtx = thumb.getContext('2d');
+      tCtx.clearRect(0, 0, thumb.width, thumb.height);
+      tCtx.drawImage(rawImageElement, 0, 0, thumb.width, thumb.height);
+
+      const maxDim = 512;
+      const scale = Math.min(1, maxDim / Math.max(rawImageElement.width, rawImageElement.height));
+      lithoImgWidth = Math.max(16, Math.round(rawImageElement.width * scale));
+      lithoImgHeight = Math.max(16, Math.round(rawImageElement.height * scale));
+
+      workCanvas.width = lithoImgWidth;
+      workCanvas.height = lithoImgHeight;
+
+      const blurPx = parseInt(document.getElementById('lithoBlur').value) || 0;
+      workCtx.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
+      workCtx.drawImage(rawImageElement, 0, 0, lithoImgWidth, lithoImgHeight);
+
+      const imgData = workCtx.getImageData(0, 0, lithoImgWidth, lithoImgHeight).data;
+      lithoGrayscaleBuffer = new Float32Array(lithoImgWidth * lithoImgHeight);
+
+      for (let i = 0; i < lithoGrayscaleBuffer.length; i++) {
+        const idx = i * 4;
+        const alpha = imgData[idx + 3] / 255;
+        const lum = (0.299 * imgData[idx] + 0.587 * imgData[idx + 1] + 0.114 * imgData[idx + 2]) / 255;
+        const effectiveLum = lum * alpha + (1.0 - alpha);
+        lithoGrayscaleBuffer[i] = 1.0 - effectiveLum;
+      }
+    }
+
+    function sampleLithoDisplacement(u, v, params) {
+      if (!lithoGrayscaleBuffer || params.lithoDepth <= 0) return 0;
+
+      const margin = params.lithoMargin / 100;
+      if (v <= margin || v >= 1.0 - margin) return 0;
+
+      let vNorm = (v - margin) / (1.0 - 2 * margin);
+
+      if (params.lithoWrapMode === 'aspect' && lithoImgWidth > 0 && lithoImgHeight > 0) {
+        const avgRadius = (params.bottomRadius + params.topRadius) * 0.5;
+        const circumference = (2 * Math.PI * avgRadius) / params.lithoRepeatX;
+        const activeHeight = params.height * (1.0 - 2 * margin);
+        const shadeAspect = circumference / activeHeight;
+        const imgAspect = lithoImgWidth / lithoImgHeight;
+
+        const ratio = imgAspect / shadeAspect;
+        if (ratio > 1.0) {
+          const band = 1.0 / ratio;
+          const pad = (1.0 - band) * 0.5;
+          if (vNorm < pad || vNorm > 1.0 - pad) return 0;
+          vNorm = (vNorm - pad) / band;
+        }
+      }
+
+      let edgeFeather = 1.0;
+      const featherZone = 0.03;
+      if (vNorm < featherZone) edgeFeather = vNorm / featherZone;
+      else if (vNorm > 1.0 - featherZone) edgeFeather = (1.0 - vNorm) / featherZone;
+
+      let uWrapped = (u * params.lithoRepeatX) % 1.0;
+      if (uWrapped < 0) uWrapped += 1.0;
+      if (params.lithoFlipX) uWrapped = 1.0 - uWrapped;
+
+      const fx = uWrapped * (lithoImgWidth - 1);
+      const fy = (1.0 - vNorm) * (lithoImgHeight - 1);
+
+      const x0 = Math.floor(fx);
+      const y0 = Math.floor(fy);
+      const x1 = (x0 + 1) % lithoImgWidth;
+      const y1 = Math.min(lithoImgHeight - 1, y0 + 1);
+
+      const dx = fx - x0;
+      const dy = fy - y0;
+
+      const c00 = lithoGrayscaleBuffer[y0 * lithoImgWidth + x0];
+      const c10 = lithoGrayscaleBuffer[y0 * lithoImgWidth + x1];
+      const c01 = lithoGrayscaleBuffer[y1 * lithoImgWidth + x0];
+      const c11 = lithoGrayscaleBuffer[y1 * lithoImgWidth + x1];
+
+      const top = c00 * (1 - dx) + c10 * dx;
+      const bot = c01 * (1 - dx) + c11 * dx;
+      const darkness = top * (1 - dy) + bot * dy;
+
+      const val = params.lithoPolarity === 'positive' ? darkness : (1.0 - darkness);
+      return val * params.lithoDepth * edgeFeather;
+    }
+
+    const shadeMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: 0.42,
+      metalness: 0.02,
+      vertexColors: true,
+      side: THREE.DoubleSide
+    });
+
+    let shadeMesh = null;
+
+    function getBaseRadius(v, theta, params) {
+      let r = THREE.MathUtils.lerp(params.bottomRadius, params.topRadius, v);
+
+      if (params.profileType === 'bulge') {
+        r += params.bulgeAmount * Math.sin(v * Math.PI);
+      } else if (params.profileType === 'hourglass') {
+        r += params.bulgeAmount * Math.sin(v * Math.PI * 2);
+      }
+
+      if (params.ribCount > 0 && params.ribDepth !== 0) {
+        const twistRad = THREE.MathUtils.degToRad(params.twistAngle) * v;
+        const wave = Math.cos(params.ribCount * (theta + twistRad));
+        const shapedWave = Math.sign(wave) * Math.pow(Math.abs(wave), params.ribSharpness);
+        r += params.ribDepth * 0.5 * shapedWave;
+      }
+
+      return Math.max(12, r);
+    }
+
+    function createManifoldShell(params, baseColor, isBulbOn) {
+      const radialSegs = params.radialSegments;
+      const heightSegs = params.heightSegments;
+      const positions = [];
+      const colors = [];
+      const indices = [];
+
+      const warmGlow = new THREE.Color(0xffb347);
+      const deepShadow = new THREE.Color(0x27191c);
+      const tempColor = new THREE.Color();
+
+      for (let shell = 0; shell < 2; shell++) {
+        for (let i = 0; i <= heightSegs; i++) {
+          const v = i / heightSegs;
+          const y = v * params.height;
+
+          for (let j = 0; j < radialSegs; j++) {
+            const u = j / radialSegs;
+            const theta = u * Math.PI * 2;
+
+            const baseOuterR = getBaseRadius(v, theta, params);
+            const lithoRelief = sampleLithoDisplacement(u, v, params);
+
+            const outerR = baseOuterR + lithoRelief;
+            const innerR = Math.max(4, baseOuterR - params.wallThickness);
+            const r = shell === 0 ? outerR : innerR;
+
+            const x = r * Math.cos(theta);
+            const z = r * Math.sin(theta);
+            positions.push(x, y, z);
+
+            const localThickness = outerR - innerR;
+            if (isBulbOn) {
+              const transmission = Math.exp(-0.75 * (localThickness - params.wallThickness));
+              tempColor.copy(deepShadow).lerp(warmGlow, Math.pow(transmission, 1.15));
+              tempColor.lerp(baseColor, 0.22);
+              colors.push(tempColor.r, tempColor.g, tempColor.b);
+            } else {
+              colors.push(baseColor.r, baseColor.g, baseColor.b);
+            }
+          }
+        }
+      }
+
+      const ringStride = radialSegs;
+      const shellOffset = (heightSegs + 1) * radialSegs;
+
+      for (let i = 0; i < heightSegs; i++) {
+        for (let j = 0; j < radialSegs; j++) {
+          const nextJ = (j + 1) % radialSegs;
+          const a = i * ringStride + j;
+          const b = i * ringStride + nextJ;
+          const c = (i + 1) * ringStride + nextJ;
+          const d = (i + 1) * ringStride + j;
+          indices.push(a, b, c, a, c, d);
+        }
+      }
+
+      for (let i = 0; i < heightSegs; i++) {
+        for (let j = 0; j < radialSegs; j++) {
+          const nextJ = (j + 1) % radialSegs;
+          const a = shellOffset + i * ringStride + j;
+          const b = shellOffset + i * ringStride + nextJ;
+          const c = shellOffset + (i + 1) * ringStride + nextJ;
+          const d = shellOffset + (i + 1) * ringStride + j;
+          indices.push(a, c, b, a, d, c);
+        }
+      }
+
+      for (let j = 0; j < radialSegs; j++) {
+        const nextJ = (j + 1) % radialSegs;
+        const outA = j;
+        const outB = nextJ;
+        const inA = shellOffset + j;
+        const inB = shellOffset + nextJ;
+        indices.push(outA, inB, outB, outA, inA, inB);
+      }
+
+      const topStart = heightSegs * ringStride;
+      for (let j = 0; j < radialSegs; j++) {
+        const nextJ = (j + 1) % radialSegs;
+        const outA = topStart + j;
+        const outB = topStart + nextJ;
+        const inA = shellOffset + topStart + j;
+        const inB = shellOffset + topStart + nextJ;
+        indices.push(outA, outB, inB, outA, inB, inA);
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      geo.setIndex(indices);
+      geo.computeVertexNormals();
+      return geo.toNonIndexed();
+    }
+
+    function paintUniformColor(nonIndexedGeo, color) {
+      const count = nonIndexedGeo.attributes.position.count;
+      const colors = new Float32Array(count * 3);
+      for (let i = 0; i < count; i++) {
+        colors[i * 3] = color.r;
+        colors[i * 3 + 1] = color.g;
+        colors[i * 3 + 2] = color.b;
+      }
+      nonIndexedGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      return nonIndexedGeo;
+    }
+
+    function createRingGeometry(innerR, outerR, height, yCenter, radialSegs, color) {
+      const positions = [];
+      const indices = [];
+      const halfH = height / 2;
+
+      for (let shell = 0; shell < 2; shell++) {
+        const r = shell === 0 ? outerR : innerR;
+        for (let i = 0; i <= 1; i++) {
+          const y = yCenter + (i === 0 ? -halfH : halfH);
+          for (let j = 0; j < radialSegs; j++) {
+            const theta = (j / radialSegs) * Math.PI * 2;
+            positions.push(r * Math.cos(theta), y, r * Math.sin(theta));
+          }
+        }
+      }
+
+      const stride = radialSegs;
+      const offset = 2 * stride;
+
+      for (let j = 0; j < radialSegs; j++) {
+        const nextJ = (j + 1) % radialSegs;
+        indices.push(j, nextJ, stride + nextJ, j, stride + nextJ, stride + j);
+        indices.push(offset + j, offset + stride + nextJ, offset + nextJ, offset + j, offset + stride + j, offset + stride + nextJ);
+        indices.push(j, offset + nextJ, nextJ, j, offset + j, offset + nextJ);
+        indices.push(stride + j, stride + nextJ, offset + stride + nextJ, stride + j, offset + stride + nextJ, offset + stride + j);
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geo.setIndex(indices);
+      geo.computeVertexNormals();
+      return paintUniformColor(geo.toNonIndexed(), color);
+    }
+
+    function generateLampShade() {
+      const params = {
+        height: parseFloat(document.getElementById('height').value),
+        bottomRadius: parseFloat(document.getElementById('bottomRadius').value),
+        topRadius: parseFloat(document.getElementById('topRadius').value),
+        wallThickness: parseFloat(document.getElementById('wallThickness').value),
+        profileType: document.getElementById('profileType').value,
+        bulgeAmount: parseFloat(document.getElementById('bulgeAmount').value),
+        radialSegments: parseInt(document.getElementById('radialSegments').value),
+        heightSegments: parseInt(document.getElementById('heightSegments').value),
+        ribCount: parseInt(document.getElementById('ribCount').value),
+        ribDepth: parseFloat(document.getElementById('ribDepth').value),
+        ribSharpness: parseFloat(document.getElementById('ribSharpness').value),
+        twistAngle: parseFloat(document.getElementById('twistAngle').value),
+        fitterPosition: document.getElementById('fitterPosition').value,
+        holeDiameter: parseFloat(document.getElementById('holeDiameter').value),
+        spokeCount: parseInt(document.getElementById('spokeCount').value),
+        fitterHeight: parseFloat(document.getElementById('fitterHeight').value),
+        lithoDepth: parseFloat(document.getElementById('lithoDepth').value),
+        lithoPolarity: document.getElementById('lithoPolarity').value,
+        lithoWrapMode: document.getElementById('lithoWrapMode').value,
+        lithoRepeatX: parseInt(document.getElementById('lithoRepeatX').value),
+        lithoBlur: parseInt(document.getElementById('lithoBlur').value),
+        lithoMargin: parseInt(document.getElementById('lithoMargin').value),
+        lithoFlipX: document.getElementById('lithoFlipX').checked
+      };
+
+      // Update UI Readouts
+      document.getElementById('val-height').textContent = `${params.height} mm`;
+      document.getElementById('val-bottomRadius').textContent = `${params.bottomRadius} mm`;
+      document.getElementById('val-topRadius').textContent = `${params.topRadius} mm`;
+      document.getElementById('val-wallThickness').textContent = `${params.wallThickness.toFixed(1)} mm`;
+      document.getElementById('val-bulgeAmount').textContent = `${params.bulgeAmount} mm`;
+      document.getElementById('val-radialSegments').textContent = params.radialSegments;
+      document.getElementById('val-heightSegments').textContent = params.heightSegments;
+      document.getElementById('val-ribCount').textContent = params.ribCount;
+      document.getElementById('val-ribDepth').textContent = `${params.ribDepth.toFixed(1)} mm`;
+      document.getElementById('val-ribSharpness').textContent = params.ribSharpness.toFixed(1);
+      document.getElementById('val-twistAngle').textContent = `${params.twistAngle}°`;
+      document.getElementById('val-holeDiameter').textContent = `${params.holeDiameter} mm`;
+      document.getElementById('val-spokeCount').textContent = params.spokeCount;
+      document.getElementById('val-fitterHeight').textContent = `${params.fitterHeight.toFixed(1)} mm`;
+      document.getElementById('val-lithoDepth').textContent = `${params.lithoDepth.toFixed(1)} mm`;
+      document.getElementById('val-lithoRepeatX').textContent = `${params.lithoRepeatX}x`;
+      document.getElementById('val-lithoBlur').textContent = `${params.lithoBlur} px`;
+      document.getElementById('val-lithoMargin').textContent = `${params.lithoMargin}%`;
+
+      // Update Dynamic Slicer Calculator Card
+      const activeLithoDepth = rawImageElement ? params.lithoDepth : 0;
+      const maxWall = params.wallThickness + activeLithoDepth;
+      const recLoops = Math.max(3, Math.ceil(maxWall / 0.4));
+      document.getElementById('spec-wallRange').textContent = `${params.wallThickness.toFixed(1)} – ${maxWall.toFixed(1)} mm`;
+      document.getElementById('spec-wallLoops').textContent = `${recLoops} loops (0.4mm nozzle)`;
+
+      const fitterControls = document.getElementById('fitterControls');
+      fitterControls.style.display = (params.fitterPosition === 'bottom' || params.fitterPosition === 'top') ? 'block' : 'none';
+
+      const baseColor = new THREE.Color(document.getElementById('filamentColor').value);
+      const isBulbOn = document.getElementById('bulbToggle').checked;
+      const hardwareColor = baseColor.clone().multiplyScalar(0.85);
+
+      const geometries = [];
+      geometries.push(createManifoldShell(params, baseColor, isBulbOn));
+
+      if (params.fitterPosition === 'solidBottom') {
+        const minBottomR = Math.max(8, params.bottomRadius - Math.abs(params.ribDepth) * 0.5);
+        const baseDisc = new THREE.CylinderGeometry(minBottomR, minBottomR, params.wallThickness, params.radialSegments);
+        baseDisc.translate(0, params.wallThickness / 2, 0);
+        geometries.push(paintUniformColor(baseDisc.toNonIndexed(), hardwareColor));
+      } else if (params.fitterPosition === 'bottom' || params.fitterPosition === 'top') {
+        const isTop = params.fitterPosition === 'top';
+        const vTarget = isTop ? 1.0 : 0.0;
+        const yCenter = isTop ? params.height - params.fitterHeight / 2 : params.fitterHeight / 2;
+
+        const holeRadius = params.holeDiameter / 2;
+        const hubOuterRadius = holeRadius + 6;
+
+        geometries.push(createRingGeometry(holeRadius, hubOuterRadius, params.fitterHeight, yCenter, 64, hardwareColor));
+
+        const spokeWidth = 5.5;
+        for (let s = 0; s < params.spokeCount; s++) {
+          const angle = (s / params.spokeCount) * Math.PI * 2;
+          const wallR = getBaseRadius(vTarget, angle, params) - params.wallThickness * 0.4;
+          const spokeLen = Math.max(2, wallR - (hubOuterRadius - 1.5));
+
+          if (spokeLen > 2) {
+            const spokeGeo = new THREE.BoxGeometry(spokeLen, params.fitterHeight, spokeWidth);
+            const midR = (hubOuterRadius - 1.5) + spokeLen / 2;
+            spokeGeo.rotateY(-angle);
+            spokeGeo.translate(midR * Math.cos(angle), yCenter, midR * Math.sin(angle));
+            geometries.push(paintUniformColor(spokeGeo.toNonIndexed(), hardwareColor));
+          }
+        }
+      }
+
+      const mergedGeometry = BufferGeometryUtils.mergeGeometries(geometries, false);
+      mergedGeometry.computeVertexNormals();
+
+      if (shadeMesh) {
+        scene.remove(shadeMesh);
+        shadeMesh.geometry.dispose();
+      }
+
+      shadeMesh = new THREE.Mesh(mergedGeometry, shadeMaterial);
+      shadeMesh.castShadow = true;
+      shadeMesh.receiveShadow = true;
+      scene.add(shadeMesh);
+
+      bulbLight.position.set(0, params.height * 0.5, 0);
+      bulbMesh.position.copy(bulbLight.position);
+      controls.target.set(0, params.height * 0.5, 0);
+
+      const triCount = mergedGeometry.attributes.position.count / 3;
+      document.getElementById('polyCount').textContent = `Triangles: ${triCount.toLocaleString()}`;
+      const maxD = Math.round(Math.max(params.bottomRadius, params.topRadius) * 2 + Math.max(0, params.bulgeAmount * 2) + params.ribDepth + activeLithoDepth * 2);
+      document.getElementById('dimSummary').textContent = `~${maxD} × ${maxD} × ${params.height} mm`;
+    }
+
+    // --- Image Upload & Preset Handlers ---
+    document.getElementById('imageUpload').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => {
+          rawImageElement = img;
+          document.getElementById('imageStatusText').textContent = file.name;
+          processLithoImage();
+          generateLampShade();
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    document.getElementById('loadSampleBtn').addEventListener('click', () => {
+      document.getElementById('imageStatusText').textContent = 'Starry Mountain Demo';
+      createProceduralDemoImage();
+    });
+
+    document.getElementById('clearImageBtn').addEventListener('click', () => {
+      rawImageElement = null;
+      document.getElementById('imageUpload').value = '';
+      processLithoImage();
+      generateLampShade();
+    });
+
+    window.applySocketPreset = () => {
+      const val = document.getElementById('socketPreset').value;
+      if (val !== 'custom') {
+        document.getElementById('holeDiameter').value = val;
+        generateLampShade();
+      }
+    };
+
+    window.applyPreset = (name) => {
+      const setVal = (id, v) => { document.getElementById(id).value = v; };
+      if (name === 'lithoCylinder') {
+        setVal('height', 160); setVal('bottomRadius', 70); setVal('topRadius', 70);
+        setVal('wallThickness', 0.8); setVal('lithoDepth', 2.2);
+        setVal('profileType', 'linear'); setVal('bulgeAmount', 0);
+        setVal('radialSegments', 240); setVal('heightSegments', 160);
+        setVal('ribCount', 0); setVal('ribDepth', 0); setVal('twistAngle', 0);
+        if (!rawImageElement) createProceduralDemoImage();
+      } else if (name === 'ribbedDrum') {
+        setVal('height', 160); setVal('bottomRadius', 75); setVal('topRadius', 75);
+        setVal('wallThickness', 1.6); setVal('lithoDepth', 0);
+        setVal('profileType', 'linear'); setVal('bulgeAmount', 0);
+        setVal('radialSegments', 180); setVal('heightSegments', 100);
+        setVal('ribCount', 36); setVal('ribDepth', 5); setVal('ribSharpness', 1.2); setVal('twistAngle', 0);
+      } else if (name === 'twistedLotus') {
+        setVal('height', 190); setVal('bottomRadius', 65); setVal('topRadius', 45);
+        setVal('wallThickness', 1.6); setVal('lithoDepth', 0);
+        setVal('profileType', 'bulge'); setVal('bulgeAmount', 32);
+        setVal('radialSegments', 200); setVal('heightSegments', 100);
+        setVal('ribCount', 18); setVal('ribDepth', 11); setVal('ribSharpness', 0.7); setVal('twistAngle', 135);
+      }
+      generateLampShade();
+    };
+
+    document.querySelectorAll('input, select').forEach(el => {
+      if (el.id === 'imageUpload' || el.id === 'socketPreset') return;
+
+      if (el.id === 'bulbToggle') {
+        el.addEventListener('change', (e) => {
+          bulbLight.visible = e.target.checked;
+          bulbMesh.visible = e.target.checked;
+          generateLampShade();
+        });
+      } else if (el.id === 'autoRotateToggle') {
+        el.addEventListener('change', (e) => {
+          controls.autoRotate = e.target.checked;
+        });
+      } else if (el.id === 'wireframeToggle') {
+        el.addEventListener('change', (e) => {
+          shadeMaterial.wireframe = e.target.checked;
+        });
+      } else if (el.id === 'lithoBlur') {
+        el.addEventListener('input', () => {
+          processLithoImage();
+          generateLampShade();
+        });
+      } else {
+        el.addEventListener('input', generateLampShade);
+      }
+    });
+
+    // --- STL Exporter ---
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      if (!shadeMesh) return;
+      const exporter = new STLExporter();
+      const exportGeo = shadeMesh.geometry.clone();
+      exportGeo.rotateX(Math.PI / 2);
+      const tempMesh = new THREE.Mesh(exportGeo);
+      const stlBuffer = exporter.parse(tempMesh, { binary: true });
+
+      const blob = new Blob([stlBuffer], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `lithophane_lampshade_${Date.now()}.stl`;
+      link.click();
+      URL.revokeObjectURL(url);
+      exportGeo.dispose();
+    });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+
+    createProceduralDemoImage();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>
